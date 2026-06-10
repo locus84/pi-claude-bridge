@@ -1008,6 +1008,10 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
 			append: systemPromptAppend ? systemPromptAppend : undefined,
 		},
 		extraArgs,
+		// Opt into the 1M-context beta when the model advertises a window larger
+		// than CC's default 200K cap. Without this the SDK silently caps at 200K
+		// and rejects with "Prompt is too long" even though pi shows headroom (#24).
+		...((model.contextWindow ?? 0) > 200000 ? { betas: ["context-1m-2025-08-07"] as any } : {}),
 		...(effort ? { effort } : {}),
 		...(settingSources ? { settingSources } : {}),
 		...(mcpServers ? { mcpServers } : {}),
@@ -1115,6 +1119,18 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
 			} finally {
 				// Guarantees restoration even if contQuery() throws synchronously
 				ctx().activeQuery = sdkQuery;
+			}
+
+			// Clear activeQuery BEFORE finalizing the stream. pi's await on
+			// stream.result() resumes in a microtask before this chain's .finally
+			// runs, so a back-to-back completeSimple() (compact's parallel
+			// generateSummary + generateTurnPrefixSummary) would otherwise see a
+			// stale activeQuery, take the reentrant path, and orphan its stream —
+			// hanging compaction (#18). Non-reentrant success path only;
+			// pendingToolCalls is already drained by consumeQuery, so the .finally
+			// cleanup block it now skips is a no-op here.
+			if (!isReentrant && ctx().activeQuery === sdkQuery) {
+				ctx().activeQuery = null;
 			}
 
 			finalizeCurrentStream(ctx().turnOutput?.stopReason);
