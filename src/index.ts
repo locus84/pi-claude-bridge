@@ -1008,10 +1008,6 @@ function streamClaudeAgentSdk(model: Model<any>, context: Context, options?: Sim
 			append: systemPromptAppend ? systemPromptAppend : undefined,
 		},
 		extraArgs,
-		// Opt into the 1M-context beta when the model advertises a window larger
-		// than CC's default 200K cap. Without this the SDK silently caps at 200K
-		// and rejects with "Prompt is too long" even though pi shows headroom (#24).
-		...((model.contextWindow ?? 0) > 200000 ? { betas: ["context-1m-2025-08-07"] as any } : {}),
 		...(effort ? { effort } : {}),
 		...(settingSources ? { settingSources } : {}),
 		...(mcpServers ? { mcpServers } : {}),

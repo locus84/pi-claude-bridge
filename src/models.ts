@@ -13,7 +13,12 @@ export function buildModels<T extends { id: string; [key: string]: any }>(piAiMo
 		// Forward thinkingLevelMap so per-model overrides (e.g. opus-4-7 mapping
 		// xhigh→xhigh instead of xhigh→max) are visible to the effort lookup.
 		.map(({ id, name, reasoning, input, contextWindow, maxTokens, thinkingLevelMap }) => ({
-			id, name, reasoning, input, contextWindow, maxTokens, thinkingLevelMap,
+			id, name, reasoning, input,
+			// CC backend honors Anthropic's default 200K cap; pi-ai advertises 1M for
+			// some models but without the 1M beta the request stalls/rejects, so report
+			// the real usable window.
+			contextWindow: Math.min(contextWindow ?? 200000, 200000),
+			maxTokens, thinkingLevelMap,
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 		}));
 }
